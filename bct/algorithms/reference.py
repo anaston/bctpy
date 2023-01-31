@@ -1279,7 +1279,7 @@ def randmio_dir(R, itr, seed=None):
 
 
 @due.dcite(BibTeX(MASLOV2002), description="Randomisation, undirected and connected")
-def randmio_und_connected(R, itr, seed=None):
+def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False):
     '''
     This function randomizes an undirected network, while preserving the
     degree distribution. The function does not preserve the strength
@@ -1287,12 +1287,6 @@ def randmio_und_connected(R, itr, seed=None):
     randomized network maintains connectedness, the ability for every node
     to reach every other node in the network. The input network for this
     function must be connected.
-
-    NOTE the changes to the BCT matlab function of the same name
-    made in the Jan 2016 release
-    have not been propagated to this function because of substantially
-    decreased time efficiency in the implementation. Expect these changes
-    to be merged eventually.
 
     Parameters
     ----------
@@ -1325,7 +1319,8 @@ def randmio_und_connected(R, itr, seed=None):
     itr *= k
 
     # maximum number of rewiring attempts per iteration
-    max_attempts = np.round(n * k / (n * (n - 1)))
+    if max_attempts is None:
+        max_attempts = np.round(2 * n * k / (n * (n - 1)))
     # actual number of successful rewirings
     eff = 0
 
@@ -1394,7 +1389,10 @@ def randmio_und_connected(R, itr, seed=None):
                     break
             att += 1
 
-    return R, eff
+    if return_k:
+        return R, eff, k
+    else:
+        return R, eff
 
 
 @due.dcite(BibTeX(MASLOV2002), description="Randomisation, directed and signed")
