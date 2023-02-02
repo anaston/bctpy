@@ -3,6 +3,8 @@ import numpy as np
 from bct.utils import BCTParamError, binarize, get_rng
 from bct.utils import pick_four_unique_nodes_quickly
 from .clustering import number_of_components
+from .degree import strengths_und
+from .centrality import edge_betweenness_bin
 from ..citations import MASLOV2002, SPORNS2004, RUBINOV2011
 from ..due import BibTeX, due
 
@@ -945,7 +947,8 @@ def null_model_dir_sign(W, bin_swaps=5, wei_freq=.1, seed=None):
             W0.flat[Lij[Oind]] = s * Wv  # weight at this index
         else:
             wsize = np.size(Wv)
-            wei_period = np.round(1 / wei_freq).astype(int)  # convert frequency to period
+            # convert frequency to period
+            wei_period = np.round(1 / wei_freq).astype(int)
             lq = np.arange(wsize, 0, -wei_period, dtype=int)
             for m in lq:  # iteratively explore at this period
                 # get indices of Lij that sort P
@@ -1071,7 +1074,8 @@ def null_model_und_sign(W, bin_swaps=5, wei_freq=.1, seed=None):
             W0.flat[Lij[Oind]] = s * Wv  # weight at this index
         else:
             wsize = np.size(Wv)
-            wei_period = np.round(1 / wei_freq).astype(int)  # convert frequency to period
+            # convert frequency to period
+            wei_period = np.round(1 / wei_freq).astype(int)
             lq = np.arange(wsize, 0, -wei_period, dtype=int)
             for m in lq:  # iteratively explore at this period
                 # get indices of Lij that sort P
@@ -1279,7 +1283,7 @@ def randmio_dir(R, itr, seed=None):
 
 
 @due.dcite(BibTeX(MASLOV2002), description="Randomisation, undirected and connected")
-def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False):
+def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False, mode='random'):
     '''
     This function randomizes an undirected network, while preserving the
     degree distribution. The function does not preserve the strength
@@ -1329,10 +1333,45 @@ def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False):
         while att <= max_attempts:  # while not rewired
             rewire = True
             while True:
-                e1 = rng.randint(k)
-                e2 = rng.randint(k)
-                while e1 == e2:
+                if mode == 'random':
+                    e1 = rng.randint(k)
                     e2 = rng.randint(k)
+                    while e1 == e2:
+                        e2 = rng.randint(k)
+
+                elif mode == 'strengths':
+                    # if mode == 'strengths':
+                    b = np.argmax(strengths_und(R))  # hub node
+                    a = np.argmax(R[b])  # neighbour with strongest edge
+
+                    e1 = np.stack((np.logical_and(i == a, j == b),
+                                  np.logical_and(i == b, j == a)), axis=0)
+                    if np.any(e1, axis=1)[0]:
+                        e1 = np.where(np.any(e1, axis=0))[0][0]
+                    else:
+                        e1 = np.where(np.any(e1, axis=0))[0][0]
+                        i.setflags(write=True)
+                        j.setflags(write=True)
+                        i[e1] = a
+                        j[e1] = b  # flip edge a-b
+                        b = i[e1]
+                        a = j[e1]  # to change hub strength
+                    e2 = rng.randint(k)
+                    while e1 == e2 or \
+                            R[i[e2], j[e2]] >= R[i[e1], j[e1]]:  # edges c-d must be weaker
+                        e2 = rng.randint(k)
+
+                elif mode == 'edge_betweenness':
+                    ebc, bc = edge_betweenness_bin(
+                        R)  # atm unweighted and all nodes
+                    a, b = np.unravel_index([np.argmax(ebc)], (n, n))
+
+                    e1 = np.where(np.logical_or(np.logical_and(
+                        i == a, j == b), np.logical_and(i == b, j == a)))[0][0]
+                    e2 = rng.randint(k)
+                    while e1 == e2:
+                        e2 = rng.randint(k)
+
                 a = i[e1]
                 b = j[e1]
                 c = i[e2]
@@ -1342,7 +1381,6 @@ def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False):
                     break  # all 4 vertices must be different
 
             if rng.random_sample() > .5:
-
                 i.setflags(write=True)
                 j.setflags(write=True)
                 i[e2] = d
@@ -1427,36 +1465,35 @@ def randmio_dir_signed(R, itr, seed=None):
 
     itr *= n * (n - 1)
 
-    #maximal number of rewiring attempts per iter
+    # maximal number of rewiring attempts per iter
     max_attempts = n
-    #actual number of successful rewirings
+    # actual number of successful rewirings
     eff = 0
 
-    #print(itr)
+    # print(itr)
 
     for it in range(int(itr)):
-        #print(it)
+        # print(it)
         att = 0
         while att <= max_attempts:
-            #select four distinct vertices
+            # select four distinct vertices
 
             a, b, c, d = pick_four_unique_nodes_quickly(n, rng)
 
-            #a, b, c, d = rng.choice(n, 4)
-            #a, b, c, d = rng.permutation(4)
+            # a, b, c, d = rng.choice(n, 4)
+            # a, b, c, d = rng.permutation(4)
 
             r0_ab = R[a, b]
             r0_cd = R[c, d]
             r0_ad = R[a, d]
             r0_cb = R[c, b]
 
-            #print(np.sign(r0_ab), np.sign(r0_ad))
+            # print(np.sign(r0_ab), np.sign(r0_ad))
 
-            #rewiring condition
-            if (    np.sign(r0_ab) == np.sign(r0_cd) and
+            # rewiring condition
+            if (np.sign(r0_ab) == np.sign(r0_cd) and
                     np.sign(r0_ad) == np.sign(r0_cb) and
                     np.sign(r0_ab) != np.sign(r0_ad)):
-
 
                 R[a, d] = r0_ab
                 R[a, b] = r0_ad
@@ -1468,7 +1505,7 @@ def randmio_dir_signed(R, itr, seed=None):
 
             att += 1
 
-    #print(eff)
+    # print(eff)
 
     return R, eff
 
@@ -1584,7 +1621,7 @@ def randmio_und_signed(R, itr, seed=None):
     R = R.copy()
     n = len(R)
 
-    itr *= int(n * (n -1) / 2)
+    itr *= int(n * (n - 1) / 2)
 
     max_attempts = int(np.round(n / 2))
     eff = 0
@@ -1600,8 +1637,8 @@ def randmio_und_signed(R, itr, seed=None):
             r0_ad = R[a, d]
             r0_cb = R[c, b]
 
-            #rewiring condition
-            if (    np.sign(r0_ab) == np.sign(r0_cd) and
+            # rewiring condition
+            if (np.sign(r0_ab) == np.sign(r0_cd) and
                     np.sign(r0_ad) == np.sign(r0_cb) and
                     np.sign(r0_ab) != np.sign(r0_ad)):
 
