@@ -1283,7 +1283,7 @@ def randmio_dir(R, itr, seed=None):
 
 
 @due.dcite(BibTeX(MASLOV2002), description="Randomisation, undirected and connected")
-def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False, mode='random'):
+def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False, mode='random', verbose=False):
     '''
     This function randomizes an undirected network, while preserving the
     degree distribution. The function does not preserve the strength
@@ -1320,7 +1320,6 @@ def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False, 
     n = len(R)
     i, j = np.where(np.tril(R))
     k = len(i)
-    itr *= k
 
     # maximum number of rewiring attempts per iteration
     if max_attempts is None:
@@ -1329,6 +1328,9 @@ def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False, 
     eff = 0
 
     for it in range(int(itr)):
+        if verbose:
+            print(f'Iteration {it}')
+
         att = 0
         while att <= max_attempts:  # while not rewired
             rewire = True
