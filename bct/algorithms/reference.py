@@ -1283,7 +1283,8 @@ def randmio_dir(R, itr, seed=None):
 
 
 @due.dcite(BibTeX(MASLOV2002), description="Randomisation, undirected and connected")
-def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False, mode='random', verbose=False):
+def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False,
+                          mode='random', verbose=False, lattice=False):
     '''
     This function randomizes an undirected network, while preserving the
     degree distribution. The function does not preserve the strength
@@ -1395,6 +1396,10 @@ def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False, 
 
             # rewiring condition
             if not (R[a, d] or R[c, b]):
+                # lattice condition
+                if lattice and np.sum(np.abs([a - b, c - d])) <= np.sum(np.abs([a - d, b - c])):
+                    rewire = False
+
                 # connectedness condition
                 if not (R[a, c] or R[b, d]):
                     P = R[(a, d), :].copy()
