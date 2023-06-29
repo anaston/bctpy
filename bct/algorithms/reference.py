@@ -3,7 +3,7 @@ import numpy as np
 from bct.utils import BCTParamError, binarize, get_rng
 from bct.utils import pick_four_unique_nodes_quickly
 from .clustering import number_of_components
-from .degree import strengths_und
+from .degree import strengths_und, degrees_und
 from .centrality import edge_betweenness_bin
 from ..citations import MASLOV2002, SPORNS2004, RUBINOV2011
 from ..due import BibTeX, due
@@ -1341,9 +1341,11 @@ def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False, 
                     while e1 == e2:
                         e2 = rng.randint(k)
 
-                elif mode == 'strengths':
-                    # if mode == 'strengths':
-                    b = np.argmax(strengths_und(R))  # hub node
+                elif mode in ['strengths', 'degrees']:
+                    if mode == 'strengths':
+                        b = np.argmax(strengths_und(R))  # hub node
+                    elif mode == 'degrees':
+                        b = np.argmax(degrees_und(R))  # hub node
                     a = np.argmax(R[b])  # neighbour with strongest edge
 
                     e1 = np.stack((np.logical_and(i == a, j == b),
@@ -1359,9 +1361,10 @@ def randmio_und_connected(R, itr, seed=None, max_attempts=None, return_k=False, 
                         b = i[e1]
                         a = j[e1]  # to change hub strength
                     e2 = rng.randint(k)
-                    while e1 == e2 or \
-                            R[i[e2], j[e2]] >= R[i[e1], j[e1]]:  # edges c-d must be weaker
-                        e2 = rng.randint(k)
+                    if mode == 'strengths':
+                        while e1 == e2 or \
+                                R[i[e2], j[e2]] >= R[i[e1], j[e1]]:  # edges c-d must be weaker
+                            e2 = rng.randint(k)
 
                 elif mode == 'edge_betweenness':
                     ebc, bc = edge_betweenness_bin(
